@@ -1,95 +1,94 @@
-# Serverless Databricks Job Orchestrator
+# Databricks Data Ingestion and Transformation Pipeline
 
 ## Overview
-The **Serverless Databricks Job Orchestrator** eliminates the need for Apache Airflow by leveraging AWS-native orchestration tools. This approach simplifies workflow management, reduces infrastructure overhead, and enhances security and scalability by utilizing AWS Step Functions, AWS Lambda, and AWS CloudWatch.
+This project is a data ingestion and transformation pipeline built using Databricks, PySpark, AWS Glue, Kinesis, Delta Lake, and EventBridge. It also integrates Databricks Auto Loader, Azure Event Hub, and Kafka for real-time data streaming.
 
 ## Features
-- **No Airflow Dependency**: Reduces the burden of maintaining an Airflow instance.
-- **Cost Efficiency**: Pay-as-you-go pricing model without persistent infrastructure.
-- **Native AWS Integration**: Seamless connectivity with AWS Step Functions, Lambda, and CloudWatch.
-- **Simplified Security and Access Control**: Uses IAM roles and AWS Secrets Manager.
-- **Scalability and Fault Tolerance**: Automatic scaling with built-in error handling.
+- **Real-time data ingestion** using Kafka, Azure Event Hub, and AWS Kinesis.
+- **Efficient data transformation** using PySpark and Delta Lake.
+- **Automated schema evolution** with Databricks Auto Loader.
+- **Event-driven architecture** utilizing AWS EventBridge.
+- **Optimized storage** leveraging Delta Lake's ACID properties.
 
 ## Folder Structure
-The project is structured into key components to ensure modularity and ease of use:
-
-### 1. **Orchestration Scripts**
-This folder contains automation scripts that integrate with AWS services:
-- **Lambda Functions**: Serverless functions to trigger Databricks jobs.
-- **Step Functions Definitions**: AWS Step Functions state machine definitions for job orchestration.
-
-### 2. **IAM Policies & Security**
-Contains IAM role and policy definitions required to securely execute Databricks jobs:
-- **IAM Role for Lambda**: Grants permissions to invoke Step Functions, write logs, and call the Databricks API.
-- **AWS Secrets Manager Integration**: Securely stores and manages Databricks API credentials.
-
-### 3. **Monitoring & Logging**
-Includes configurations for centralized logging and monitoring:
-- **CloudWatch Logs**: Stores logs from Lambda and Step Functions.
-- **Step Functions Execution History**: Tracks execution logs and error handling.
-
-## Getting Started
-
-### Prerequisites
-To use this orchestrator, ensure you have:
-- **AWS Account** with permissions to use Step Functions, Lambda, and CloudWatch.
-- **Databricks Workspace** and API credentials.
-- **AWS CLI & Terraform (Optional)** for deployment automation.
-
-### Installation
-Clone the repository to your local machine:
-```bash
-git clone https://github.com/your-repo/serverless-databricks-orchestrator.git
-cd serverless-databricks-orchestrator
+```
+├── notebooks
+│   ├── main_notebook.py   # Main pipeline execution
+│   ├── variables_notebook.py  # Configuration variables
+│   ├── ingestion.py  # Data ingestion logic
+│   ├── transformation.py  # Data transformation logic
+│   ├── utils.py  # Helper functions
+│
+├── configs
+│   ├── config.json  # JSON configuration file
+│
+├── README.md
 ```
 
-### Setup
-#### 1. **Create an IAM Role for Lambda**
-Grant necessary permissions by attaching the following IAM policy:
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "states:StartExecution",
-      "Resource": "*"
-    }
-  ]
-}
+## Installation
+1. Clone the repository:
+   ```sh
+   git clone <repository_url>
+   cd <repository_name>
+   ```
+2. Set up a virtual environment and install dependencies:
+   ```sh
+   python -m venv venv
+   source venv/bin/activate  # On Windows use: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+## Usage
+### Step 1: Define Variables
+Store environment variables and configurations in `variables_notebook.py`:
+```python
+# variables_notebook.py
+KAFKA_BROKER = "<broker_url>"
+TOPIC_NAME = "<topic>"
+S3_BUCKET = "<s3_bucket>"
 ```
 
-#### 2. **Deploy Lambda Function**
-- Configure the **Databricks API** details.
-- Deploy the function using AWS Lambda.
+### Step 2: Data Ingestion
+Implement data ingestion using Kafka, Event Hub, or Kinesis:
+```python
+# ingestion.py
+from pyspark.sql import SparkSession
 
-#### 3. **Create an AWS Step Functions State Machine**
-- Define the state machine JSON configuration.
-- Replace placeholders for **region, account ID, and Lambda function name**.
-- Deploy the state machine via AWS Console or Terraform.
+def ingest_kafka():
+    spark = SparkSession.builder.appName("KafkaIngestion").getOrCreate()
+    df = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_BROKER).option("subscribe", TOPIC_NAME).load()
+    return df
+```
 
-### Usage
-1. **Manually Trigger the Step Function**
-   - Navigate to AWS Step Functions.
-   - Start execution and monitor logs.
-2. **Automate Execution**
-   - Set up an AWS EventBridge rule to trigger workflows based on schedule or events.
+### Step 3: Data Transformation
+Apply transformations using PySpark:
+```python
+# transformation.py
+def transform_data(df):
+    return df.selectExpr("CAST(value AS STRING)")
+```
 
-## Monitoring & Debugging
-- **CloudWatch Logs**: Find execution logs under `/aws/lambda/YourLambdaFunctionName`.
-- **Step Functions Execution History**: Track execution flow and errors in the AWS Console.
+### Step 4: Save to Delta Lake
+Write transformed data to Delta Lake:
+```python
+# main_notebook.py
+def write_to_delta(df):
+    df.writeStream.format("delta").option("path", "s3://" + S3_BUCKET).option("checkpointLocation", "s3://" + S3_BUCKET + "/_checkpoints").start()
+```
 
-## Contributions
-We welcome contributions! If you have ideas for improvements, submit a pull request.
+### Step 5: Run the Pipeline
+Run the pipeline in Databricks:
+```sh
+python main_notebook.py
+```
+
+## Configuration
+- Modify `config.json` for environment-specific configurations.
+- Update `variables_notebook.py` with necessary credentials and endpoints.
+
+## Contributing
+Feel free to fork this repository and contribute improvements via pull requests.
 
 ## License
-This project is licensed under the **MIT License**.
-
-## Contact
-For issues, support, or questions, please use the GitHub Issues section or contact the project maintainer via email.
+This project is licensed under the MIT License.
 
